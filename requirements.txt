@@ -1,2 +1,6 @@
 Flask
 Gunicorn
+lightkurve
+matplotlib
+numpy
+requests
