@@ -1,30 +1,24 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, jsonify
 import lightkurve as lk
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 
-# Use Agg backend for matplotlib
-plt.switch_backend('Agg')
-
 app = Flask(__name__)
 
-@app.route('/', methods=["GET", "POST"])
+@app.route('/', methods=["POST"])
 def index():
     if request.method == 'POST':
-        tic_id = request.form['tic_id']
+        tic_id = request.json.get('tic_id')
 
         try:
-            TIC = f'{tic_id}'
-            available_data_select = lk.search_lightcurve(TIC, author='SPOC', cadence='short', mission='TESS')
-            lc = available_data_select.download()
-
-            if lc is None:
-                raise ValueError(f"No data found for TIC ID {tic_id}")
+            TIC = f'TIC {tic_id}'
+            available_data_select = lk.search_lightcurve(TIC)
+            lc_collection = available_data_select.download_all()
 
             # Create the lightkurve graph
             fig, ax = plt.subplots(figsize=(8, 4))
-            lc.plot(ax=ax, linewidth=0, marker='o', color='pink', markersize=2, alpha=0.8)
+            lc_collection.plot(ax=ax, linewidth=0, marker='o', color='pink', markersize=2, alpha=0.8)
 
             # Save the plot as a bytes object
             image_bytes = BytesIO()
@@ -32,15 +26,20 @@ def index():
             plt.close()
             image_bytes.seek(0)
 
-            # Convert the bytes object to base64 string for embedding in HTML
+            # Convert the bytes object to base64 string for embedding in JSON response
             encoded_image = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-            return render_template('result.html', tic_id=TIC, image_data=encoded_image)
+            response_data = {
+                'tic_id': TIC,
+                'image_data': encoded_image,
+            }
+
+            return jsonify(response_data)
         except Exception as e:
             error_message = str(e)
-            return render_template('error.html', error_message=error_message)
+            return jsonify({'error': error_message}), 500
 
-    return render_template('index.html')
+    return jsonify({'error': 'Invalid request method'}), 400
 
 if __name__ == '__main__':
     app.run()
