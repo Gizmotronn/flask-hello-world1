@@ -4,3 +4,4 @@ lightkurve
 matplotlib
 numpy
 requests
+flask-cors
