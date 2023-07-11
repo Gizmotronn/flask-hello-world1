@@ -9,6 +9,51 @@ import numpy as np
 
 app = Flask(__name__)
 
+# def calculate_number_of_trees(habitability, flux, amplitude):
+#     # Set the thresholds and corresponding factors for habitability, flux, and amplitude
+#     habitability_thresholds = [40, 70]  # Adjust these values as needed
+#     habitability_factors = [0.5, 1.0]  # Adjust these values as needed
+
+#     flux_thresholds = [0.01, 0.1, 1.0]  # Adjust these values as needed
+#     flux_factors = [1.01, 1.1, 1.5]  # Adjust these values as needed
+
+#     amplitude_thresholds = [0.1, 0.5, 1.0]  # Adjust these values as needed
+#     amplitude_factors = [1.01, 1.1, 1.5]  # Adjust these values as needed
+
+#     # Extract the value from the habitability, flux, and amplitude quantities if they are quantities
+#     if hasattr(habitability, 'value'):
+#         habitability = habitability.value
+#     if hasattr(flux, 'value'):
+#         flux = flux.value
+#     if hasattr(amplitude, 'value'):
+#         amplitude = amplitude.value
+
+#     # Determine the habitability factor based on the habitability score
+#     habitability_factor = 1.0
+#     for i, threshold in enumerate(habitability_thresholds):
+#         if habitability >= threshold:
+#             habitability_factor = habitability_factors[i]
+#             break
+
+#     # Determine the flux factor based on the flux value
+#     flux_factor = 1.0
+#     for i, threshold in enumerate(flux_thresholds):
+#         if flux < threshold:
+#             flux_factor = flux_factors[i]
+#             break
+
+#     # Determine the amplitude factor based on the amplitude value
+#     amplitude_factor = 1.0
+#     for i, threshold in enumerate(amplitude_thresholds):
+#         if amplitude < threshold:
+#             amplitude_factor = amplitude_factors[i]
+#             break
+
+#     # Calculate the number of trees based on habitability, flux, and amplitude factors
+#     num_trees = int(habitability * habitability_factor * flux_factor * amplitude_factor)
+
+#     return num_trees
+
 def calculate_number_of_trees(habitability, amplitude):
     # Convert habitability and amplitude to dimensionless scalars
     habitability = habitability.value if hasattr(habitability, 'value') else habitability
@@ -76,17 +121,8 @@ def index():
             # Determine the resource type based on habitability
             resource_type = determine_resource_type(habitability)
 
-            response_data = {
-                'tic_id': tic_id,
-                'amplitude': median_flux,
-                'num_trees': tree_normalized,
-                'habitability': habitability,
-                'life_type': life_type,
-                'resource_type': resource_type
-            }
-
-            return jsonify(response_data)  # Return the response data as JSON
-            
+            return render_template('result.html', tic_id=tic_id, amplitude=median_flux, num_trees=tree_normalized, tree_normalized=tree_normalized,
+                                   habitability=habitability, life_type=life_type, resource_type=resource_type)
         except Exception as e:
             error_message = str(e)
             return render_template('error.html', error_message=error_message)
@@ -102,6 +138,146 @@ def determine_planet_type(star_radius, star_mass, period, median_flux):
         return "Gas Giant"
     else:
         return "Unknown"
+
+@app.route('/result')
+def result():
+    return render_template('result.html')
+
+def calculate_number_of_trees_amplitude(amplitude):
+    thresholds = [0.1, 0.5, 1.0] # Thresholds and corresponding number of trees
+    num_trees = [10, 5, 1]
+
+    # Find the number of trees based on amplitude
+    for i, threshold in enumerate(thresholds):
+        if amplitude < threshold:
+            return num_trees[i]
+
+    return num_trees[-1]
+
+@app.route('/api/trees', methods=["POST"])
+def tree_query():
+    tic_id = request.json.get('tic_id') # Retrieve tic from the api request
+    try:
+        # Query & Process the TIC ID
+        lc = lk.search_lightcurve(tic_id).download()
+        flux = lc.flux
+        median_flux = np.nanmedian(flux).value
+        num_trees = calculate_number_of_trees(median_flux)
+
+        response_data = {
+            'num_trees': num_trees,
+        }
+
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        error_message = str(e)
+        return jsonify({'error': error_message}), 400
+
+@app.route('/api/query', methods=["POST"])
+def query():
+    tic_id = request.json.get('tic_id') # Retrieve tic from the api request
+    try:
+        # Query & Process the TIC ID
+        lc = lk.search_lightcurve(tic_id).download()
+        flux = lc.flux
+        median_flux = np.nanmedian(flux).value
+        num_trees = calculate_number_of_trees(median_flux)
+
+        # Convert the flux ndarray to a regular ndarray
+        # flux = flux.data if hasattr(flux, 'data') else flux
+        flux_values = flux.value.tolist()
+
+        # Convert the data into a format acceptable for the output response
+        response_data = {
+            'tic_id': tic_id,
+            'median_flux': median_flux,
+            'num_trees': num_trees,
+            'flux': flux_values
+        }
+
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        error_message = str(e)
+        return jsonify({'error': error_message}), 400
+
+def get_transit_parameters(tic_id):
+    url = f"https://exo.mast.stsci.edu/api/v0.1/exoplanets/identifiers/"
+    payload = {
+        "input": tic_id,
+        "columns": "t0, period"
+    }
+    response = requests.get(url, params=payload)
+
+    try:
+        response.raise_for_status()
+        data = response.json()
+
+        # Extract the transit parameters from the response
+        if data["data"]:
+            period = data["data"][0]["period"]
+            t0 = data["data"][0]["t0"]
+            return period, t0
+
+        # Handle the case when data is not available for the TIC ID
+        error_message = f"No transit parameters available for TIC ID {tic_id}"
+    except requests.exceptions.HTTPError as e:
+        error_message = f"HTTP Error: {e}"
+    except json.JSONDecodeError as e:
+        error_message = f"JSON Decode Error: {e}"
+    except KeyError as e:
+        error_message = f"Key Error: {e}"
+    except Exception as e:
+        error_message = str(e)
+
+    # Print or log the error message for debugging
+    print(f"Error retrieving transit parameters for TIC ID {tic_id}: {error_message}")
+
+    # Return default values or handle the error condition as needed
+    return None, None
+
+@app.route('/tic', methods=["GET", "POST"])
+def tic_index():
+    if request.method == 'POST':
+        tic_id = request.form['tic_id']
+        tic_numerals = ''.join(filter(str.isdigit, tic_id))
+
+        try:
+            lc = lk.search_lightcurve(tic_id).download()
+            lc.plot()
+            # Save the plot as a bytes object
+            image_bytes = BytesIO()
+            plt.savefig(image_bytes, format='png')
+            plt.close()
+            image_bytes.seek(0)
+            # Convert the bytes object to base64 string for embedding in HTML
+            encoded_image = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+
+            # Retrieve transit parameters from the NASA Exoplanet Archive API
+            period, t0 = get_transit_parameters(tic_id)
+
+            return render_template('result1.html', image_data=encoded_image, tic_numerals=tic_numerals, period=period, t0=t0)
+
+        except Exception as e:
+            error_message = str(e)
+            return render_template('error1.html', error_message=error_message)
+
+    return render_template('index1.html')
+
+@app.route('/result1')
+def result1():
+    return render_template('result1.html')
+
+@app.route('/screenshot', methods=['POST'])
+def process_screenshot():
+    if 'file' not in request.files:
+        return 'No file part', 400
+
+    file = request.files['file']
+    # Send to db/user state for the creation of the post card
+
+    return 'Screenshot received & processed successfully', 200#, file
 
 if __name__ == '__main__':
     app.run()
