@@ -4,55 +4,12 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 import requests
+from flask_cors import CORS
 import json
 import numpy as np
 
 app = Flask(__name__)
-
-# def calculate_number_of_trees(habitability, flux, amplitude):
-#     # Set the thresholds and corresponding factors for habitability, flux, and amplitude
-#     habitability_thresholds = [40, 70]  # Adjust these values as needed
-#     habitability_factors = [0.5, 1.0]  # Adjust these values as needed
-
-#     flux_thresholds = [0.01, 0.1, 1.0]  # Adjust these values as needed
-#     flux_factors = [1.01, 1.1, 1.5]  # Adjust these values as needed
-
-#     amplitude_thresholds = [0.1, 0.5, 1.0]  # Adjust these values as needed
-#     amplitude_factors = [1.01, 1.1, 1.5]  # Adjust these values as needed
-
-#     # Extract the value from the habitability, flux, and amplitude quantities if they are quantities
-#     if hasattr(habitability, 'value'):
-#         habitability = habitability.value
-#     if hasattr(flux, 'value'):
-#         flux = flux.value
-#     if hasattr(amplitude, 'value'):
-#         amplitude = amplitude.value
-
-#     # Determine the habitability factor based on the habitability score
-#     habitability_factor = 1.0
-#     for i, threshold in enumerate(habitability_thresholds):
-#         if habitability >= threshold:
-#             habitability_factor = habitability_factors[i]
-#             break
-
-#     # Determine the flux factor based on the flux value
-#     flux_factor = 1.0
-#     for i, threshold in enumerate(flux_thresholds):
-#         if flux < threshold:
-#             flux_factor = flux_factors[i]
-#             break
-
-#     # Determine the amplitude factor based on the amplitude value
-#     amplitude_factor = 1.0
-#     for i, threshold in enumerate(amplitude_thresholds):
-#         if amplitude < threshold:
-#             amplitude_factor = amplitude_factors[i]
-#             break
-
-#     # Calculate the number of trees based on habitability, flux, and amplitude factors
-#     num_trees = int(habitability * habitability_factor * flux_factor * amplitude_factor)
-
-#     return num_trees
+CORS(app, resources={r"/api/*": {"origins": "https://play.skinetics.tech"}})
 
 def calculate_number_of_trees(habitability, amplitude):
     # Convert habitability and amplitude to dimensionless scalars
