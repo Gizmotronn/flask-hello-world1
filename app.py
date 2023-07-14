@@ -1,11 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, render_template, jsonify
 import lightkurve as lk
 import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
+import requests
+from flask_cors import CORS
+import json
 import numpy as np
 
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "https://play.skinetics.tech"}})
 
 def calculate_number_of_trees(habitability, amplitude):
     # Convert habitability and amplitude to dimensionless scalars
