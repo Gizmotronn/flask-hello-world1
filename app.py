@@ -9,7 +9,7 @@ import json
 import numpy as np
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://play.skinetics.tech"}})
+CORS(app)#, resources={r"/api/*": {"origins": "https://play.skinetics.tech"}})
 
 def calculate_number_of_trees(habitability, amplitude):
     # Convert habitability and amplitude to dimensionless scalars
