@@ -1,14 +1,50 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Star Sailors - Tree Calculation</title>
+    <title>TIC ID Search</title>
 </head>
 <body>
-    <h1>Star Sailors - Tree Calculation</h1>
-    <form method="POST" action="/">
-        <label for="tic_id">Enter TIC ID:</label>
-        <input type="text" id="tic_id" name="tic_id" required>
-        <input type="submit" value="Calculate">
+    <h1>Enter TIC ID</h1>
+    <form id="ticForm">
+        <input type="text" name="tic_id" id="ticIdInput" required>
+        <button type="submit">Submit</button>
     </form>
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById('ticForm');
+        const resultDiv = document.getElementById('result');
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const tic_id = document.getElementById('ticIdInput').value;
+
+            fetch('/api/resultss', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ tic_id: tic_id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Handle the response data
+                const { tic_id, amplitude, num_trees, habitability, life_type, resource_type } = data;
+                resultDiv.innerHTML = `
+                    <p>TIC ID: ${tic_id}</p>
+                    <p>Amplitude: ${amplitude}</p>
+                    <p>Number of Trees: ${num_trees}</p>
+                    <p>Habitability: ${habitability}</p>
+                    <p>Life Type: ${life_type}</p>
+                    <p>Resource Type: ${resource_type}</p>
+                `;
+            })
+            .catch(error => {
+                // Handle any errors
+                console.error('Error:', error);
+            });
+        });
+    </script>
 </body>
 </html>
